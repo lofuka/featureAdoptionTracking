@@ -3,20 +3,78 @@ public class AdoptionCounter  {
     //Method for Processbuilder
     @InvocableMethod(label='Increase Adoption Counter' description='Provide it a featuer action combination to incease adoption count')
     public static void increaseAdoptionCountInvocable(List<FeatureActionWrapper > featureActionList){
-        //Yes dirty, only works for Trigger Size 1
+
+        //GET Current User
+        Id userId = UserInfo.getUserId();
+    
+        //Create FeatureActionCompound Keyset
+        Set<String> featureActionKeySet = new Set<String>();
+        
         for(FeatureActionWrapper fAw:  featureActionList){
-            AdoptionCounter.performAdoptionOperation(fAw.feature, fAw.action);
-            break;
+            featureActionKeySet.add(fAw.Feature+' '+fAw.Action);
         }
-    }
+        
+    
+        //Get List of existing entries where USER, This Week, Actio IN: FeatureActionList and Feature IN: FeatureActionList
+    
+        //Fill Map<String,Adoption_Counter__c> featureActionMap
+        Map<String,Adoption_Counter__c> featureActionMap = new Map<String,Adoption_Counter__c>();
+        for(Adoption_Counter__c acElement : [SELECT Feature_Action_Compound__c, Id, Action__c, Count__c, User__c, Feature__c FROM Adoption_Counter__c WHERE User__c =: userId AND CreatedDate = THIS_Week ANd Feature_Action_Compound__c	 IN: featureActionKeySet]){
+            featureActionMap.put(acElement.Feature_Action_Compound__c,acElement);
+            
+        }
+    
+        List<Adoption_Counter__c>  adoptionCountersToUpdate = new List<Adoption_Counter__c>();
+    
+        //Iterate over FeatureActionList
+        for(FeatureActionWrapper fAw:  featureActionList){
+            
+            Adoption_Counter__c  newAdoptionCounter = new Adoption_Counter__c();
+            
+            //Get AdoptionCounter from Map
+            
+            Adoption_Counter__c existingAdoptionCounter = featureActionMap.get(fAw.Feature+' '+fAw.Action);
+            system.debug('featureActionMap '+featureActionMap);
+            system.debug('fAw.Feature fAw.Action');
+            system.debug(fAw.Feature+' '+fAw.Action);
+            //Entry already exists -> Increase by one 
+            if(existingAdoptionCounter != null){
+                newAdoptionCounter = existingAdoptionCounter;
+                newAdoptionCounter.Count__c +=1;
+            }
+            
+            //Entry does not exist -> Create One
+    
+            if(existingAdoptionCounter == null){
+                newAdoptionCounter.User__c = userId;
+                newAdoptionCounter.Action__c = fAw.Action;
+                newAdoptionCounter.Feature__c = fAw.feature;
+                newAdoptionCounter.Count__c = 1;
+            }
+            
+            adoptionCountersToUpdate.add(newAdoptionCounter);
+    
+        }
+        //Upsert Entry
+        if(!adoptionCountersToUpdate.isEmpty()){
+            upsert adoptionCountersToUpdate;
+        }	
+    
+        
+    }    
     
     //Lightning Component Method
     @AuraEnabled
     public static void increaseAdoptionCount(String feature, String actionType){
-        AdoptionCounter.performAdoptionOperation(feature, actionType);
+        FeatureActionWrapper newFeatureAction = new FeatureActionWrapper();
+        newFeatureAction.feature = feature;
+        newFeatureAction.action = actionType;
+        List<FeatureActionWrapper> featureActionList = new List<FeatureActionWrapper>();
+        featureActionList.add(newFeatureAction);
+        AdoptionCounter.increaseAdoptionCountInvocable(featureActionList);
     }
 
-    public static void performAdoptionOperation(String feature, String actionType){
+    /*public static void performAdoptionOperation(String feature, String actionType){
         //Get Current User
         Id userId = UserInfo.getUserId();
 
@@ -47,7 +105,7 @@ public class AdoptionCounter  {
         //Upsert Entry
         upsert newAdoptionCounter;
     
-    }
+    }*/
     
     public class FeatureActionWrapper {
         @InvocableVariable(required=true)

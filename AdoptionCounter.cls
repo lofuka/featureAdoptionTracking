@@ -29,7 +29,6 @@ public class AdoptionCounter  {
         //Iterate over FeatureActionList
         for(FeatureActionWrapper fAw:  featureActionList){
             
-            Adoption_Counter__c  newAdoptionCounter = new Adoption_Counter__c();
             
             //Get AdoptionCounter from Map
             
@@ -39,25 +38,25 @@ public class AdoptionCounter  {
             system.debug(fAw.Feature+' '+fAw.Action);
             //Entry already exists -> Increase by one 
             if(existingAdoptionCounter != null){
-                newAdoptionCounter = existingAdoptionCounter;
-                newAdoptionCounter.Count__c +=1;
+                featureActionMap.get(fAw.Feature+' '+fAw.Action).Count__c +=1;
             }
             
             //Entry does not exist -> Create One
     
             if(existingAdoptionCounter == null){
+	            Adoption_Counter__c  newAdoptionCounter = new Adoption_Counter__c();            
                 newAdoptionCounter.User__c = userId;
                 newAdoptionCounter.Action__c = fAw.Action;
                 newAdoptionCounter.Feature__c = fAw.feature;
                 newAdoptionCounter.Count__c = 1;
+                featureActionMap.put(fAw.Feature+' '+fAw.Action,newAdoptionCounter);
             }
             
-            adoptionCountersToUpdate.add(newAdoptionCounter);
     
         }
         //Upsert Entry
-        if(!adoptionCountersToUpdate.isEmpty()){
-            upsert adoptionCountersToUpdate;
+        if(!featureActionMap.isEmpty()){
+            upsert featureActionMap.values();
         }	
     
         
@@ -113,6 +112,7 @@ public class AdoptionCounter  {
         
         @InvocableVariable(required=true)
         public String action;
+        
               
     }    
 }
